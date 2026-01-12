@@ -51,13 +51,13 @@ jobs:
         run: ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=runiksystems_beer-service -Dsonar.organization=runiksystems
 
       # 3. SCAN DE SÉCURITÉ SCA (Snyk - Dépendances)
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/maven@master
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Run Snyk Test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-        with:
-          args: --all-project
+        run: snyk test --all-projects
 
       # 4. SCAN DE SÉCURITÉ IMAGE DOCKER (Trivy)
       - name: Build Docker Image
