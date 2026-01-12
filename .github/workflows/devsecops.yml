@@ -55,6 +55,9 @@ jobs:
         uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        with:
+          args: --all-project
 
       # 4. SCAN DE SÉCURITÉ IMAGE DOCKER (Trivy)
       - name: Build Docker Image
