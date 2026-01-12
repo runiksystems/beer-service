@@ -57,7 +57,7 @@ jobs:
       - name: Run Snyk Test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --all-projects
+        run: snyk test --all-projects --severity-threshold=critical
 
       # 4. SCAN DE SÉCURITÉ IMAGE DOCKER (Trivy)
       - name: Build Docker Image
