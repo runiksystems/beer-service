@@ -78,6 +78,7 @@ jobs:
         run: |
           ./mvnw package \
           -Dquarkus.container-image.build=true \
+          -Dquarkus.container-image.build=true \
           -Dquarkus.container-image.group=runiksystems \
           -Dquarkus.container-image.name=beer-service \
           -Dquarkus.container-image.tag=latest \
