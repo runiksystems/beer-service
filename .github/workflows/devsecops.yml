@@ -2,17 +2,18 @@ name: Ultimate Quarkus DevSecOps
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build-and-test:
-    name: Build and analyze
+  build-and-analyze:
+    name: Build and Security Scan
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -23,7 +24,7 @@ jobs:
           distribution: 'zulu'
           cache: 'maven'
 
-      # --- BLOC CACHE SONAR  ---
+      # --- CACHE ---
       - name: Cache SonarQube packages
         uses: actions/cache@v4
         with:
@@ -37,18 +38,30 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      # -----------------------------------
 
-      # 1. QUALITÉ & TESTS (génère Jacoco)
+      # --- INITIALISATION CODEQL (Doit être avant le build) ---
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java
+
+      # 1. BUILD, TESTS & ANALYSE SAST
       - name: Build with Maven & Test Coverage
+        # CodeQL analyse le code pendant que Maven compile
         run: ./mvnw -B verify
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
 
       # 2. ANALYSE SONARCLOUD
       - name: SonarCloud Analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=runiksystems_beer-service -Dsonar.organization=runiksystems
+        run: |
+          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          -Dsonar.projectKey=runiksystems_beer-service \
+          -Dsonar.organization=runiksystems
 
       # 3. SCAN DE SÉCURITÉ SCA (Snyk - Dépendances)
       - name: Install Snyk CLI
@@ -57,26 +70,23 @@ jobs:
       - name: Run Snyk Test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        # Seuil critical pour ignorer la faille High actuelle de Quarkus sans patch
         run: snyk test --all-projects --severity-threshold=critical
 
       # 4. SCAN DE SÉCURITÉ IMAGE DOCKER (Trivy)
       - name: Build Docker Image
         run: |
-          ./mvnw package -Dquarkus.container-image.build=true -DskipTests
+          ./mvnw package \
+          -Dquarkus.container-image.build=true \
+          -Dquarkus.container-image.group=runiksystems \
+          -Dquarkus.container-image.name=beer-service \
+          -Dquarkus.container-image.tag=latest \
+          -DskipTests
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'runiksystems/beer-service:${{ github.sha }}'
+          image-ref: 'runiksystems/beer-service:latest'
           format: 'table'
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
-
-      # 5. ANALYSE SAST (CodeQL)
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: java
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
